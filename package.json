@@ -16,11 +16,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./eslint": {
       "types": "./dist/eslint.d.ts",
-      "import": "./dist/eslint.js"
+      "import": "./dist/eslint.js",
+      "default": "./dist/eslint.js"
     }
   },
   "files": [

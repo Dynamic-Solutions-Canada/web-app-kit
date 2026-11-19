@@ -210,6 +210,8 @@ const restrictedImports = {
 }
 ```
 
+In an npm workspaces monorepo, the config must be able to resolve the kit from where the config file sits. `npm install -w apps/web <kit>` can install the kit under `apps/web/node_modules` rather than the root, and `npm dedupe` does not hoist it, so a root `eslint.config.mjs` then fails to import `@dynamic-solutions-canada/web-app-kit/eslint`. Either declare the kit in the root `package.json` as well, or import the lint config from a config file inside the workspace that declares it.
+
 ## Adopting it in an app
 
 - Replace the app's own copy and its history helper; do not keep both. An app's old history key, left in a tab that stays open across the deploy, is ignored, and a stale entry costs at most one Back that does nothing.
@@ -221,6 +223,7 @@ const restrictedImports = {
 ## Limits and gotchas
 
 - **One copy per page.** The dialog stack is module state. Two kit copies bundled into one page (two versions, or a kit copy beside an app's own history-backed modal) would each treat the other's history entries as stale and step back over them, so Back misbehaves. This is one reason every app pins the same tag; after an upgrade, check that only one copy is installed (`npm ls @dynamic-solutions-canada/web-app-kit`).
+- **ES modules only, `require()` too.** The kit ships one ES module build. Node 22.12 and later load it with `require()` as well as `import`, and both return the same module, so a test that `require()`s the kit still shares one dialog stack. A loader that compiles modules on `require()` breaks that: under tsx 4.23, which `devkit-test` uses for TypeScript tests, a `require()`d kit (directly, or through a `require()`d file that imports it) is a second copy beside the `import`ed one. In one test file, reach the kit through `require()` everywhere or through `import` everywhere.
 - **Node range.** The kit is developed on the Node version in `.nvmrc`, but `engines.node` is the range `>=22.22.2 <25`, so apps still on Node 22 can install it with `engine-strict=true`. This is a deliberate, temporary exception to the exact-pin rule for a shared library, as in devkit; it narrows to the exact fleet version once every app has moved to it. The lower bound comes from the build's own dependencies (jsdom 31).
 - **React 18 support is temporary.** The peer range covers React 18 for the apps still on it, and the kit's tests run on both majors (`npm run test:react18`). The range narrows to `^19` once every app has upgraded.
 - **Private repository, for now.** Installing a tag needs git access to this repo wherever the app installs: developer machines, the app's CI, and any image build. This goes away when the repo is made public.
