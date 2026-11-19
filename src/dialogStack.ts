@@ -251,7 +251,10 @@ function handlePopState(event: PopStateEvent): void {
   }
 
   queueMicrotask(() => {
-    window.history.replaceState(buildHistoryState(activeStack()), document.title)
+    window.history.replaceState(
+      buildHistoryState(activeStack()),
+      document.title,
+    )
     if (window.history.length > 1) {
       goBack()
     }

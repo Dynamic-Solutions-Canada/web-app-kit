@@ -19,21 +19,27 @@ function lint(code: string, configs: Linter.Config[]): string[] {
 const config = [backAwareModalLintConfig as Linter.Config]
 
 test('a named import of Modal from @mui/joy is an error', () => {
-  assert.deepEqual(lint("import { Modal } from '@mui/joy'", config), ['no-restricted-imports'])
-})
-
-test('an aliased Modal import is an error too', () => {
-  assert.deepEqual(lint("import { Modal as JoyModal } from '@mui/joy'", config), [
+  assert.deepEqual(lint("import { Modal } from '@mui/joy'", config), [
     'no-restricted-imports',
   ])
 })
 
+test('an aliased Modal import is an error too', () => {
+  assert.deepEqual(
+    lint("import { Modal as JoyModal } from '@mui/joy'", config),
+    ['no-restricted-imports'],
+  )
+})
+
 test('the @mui/joy/Modal subpath is an error', () => {
-  assert.deepEqual(lint("import Modal from '@mui/joy/Modal'", config), ['no-restricted-imports'])
+  assert.deepEqual(lint("import Modal from '@mui/joy/Modal'", config), [
+    'no-restricted-imports',
+  ])
 })
 
 test('the other modal parts stay allowed', () => {
-  const code = "import { ModalClose, ModalDialog, ModalOverflow } from '@mui/joy'"
+  const code =
+    "import { ModalClose, ModalDialog, ModalOverflow } from '@mui/joy'"
   assert.deepEqual(lint(code, config), [])
 })
 
@@ -52,5 +58,8 @@ test('the exported paths combine with an app list in one rule entry', () => {
     },
   }
   const code = "import { Modal } from '@mui/joy'\nimport _ from 'lodash'"
-  assert.deepEqual(lint(code, [combined]), ['no-restricted-imports', 'no-restricted-imports'])
+  assert.deepEqual(lint(code, [combined]), [
+    'no-restricted-imports',
+    'no-restricted-imports',
+  ])
 })

@@ -24,11 +24,11 @@ The approval key includes the version, so a tag bump approves the new version in
 
 The app supplies the peer dependencies:
 
-| Peer | Range |
-| --- | --- |
-| `react`, `react-dom` | `^18.3.1 \|\| ^19` |
-| `@mui/joy` | `^5.0.0-beta.52` |
-| `eslint` | `^9.24.0 \|\| ^10`, optional, only for the lint config |
+| Peer                 | Range                                                  |
+| -------------------- | ------------------------------------------------------ |
+| `react`, `react-dom` | `^18.3.1 \|\| ^19`                                     |
+| `@mui/joy`           | `^5.0.0-beta.52`                                       |
+| `eslint`             | `^9.24.0 \|\| ^10`, optional, only for the lint config |
 
 ## BackAwareModal
 
@@ -38,7 +38,7 @@ A drop-in replacement for Joy's `Modal`. It takes every `Modal` prop, plus one o
 import { ModalClose, ModalDialog } from '@mui/joy'
 import { BackAwareModal } from '@dynamic-solutions-canada/web-app-kit'
 
-<BackAwareModal open={open} onClose={() => setOpen(false)}>
+;<BackAwareModal open={open} onClose={() => setOpen(false)}>
   <ModalDialog>
     <ModalClose aria-label={t('dialog.close')} />
     ...
@@ -64,14 +64,17 @@ Joy's `ModalClose` is an icon-only button with no accessible name. Give it an `a
 
 The kit exposes the dialog stack read-only, so an app can hang its own policy on it, such as holding an automatic update reload or letting a native Back handler defer to an open dialog.
 
-| Export | Returns |
-| --- | --- |
-| `hasOpenBackAwareDialog()` | Whether any `BackAwareModal` is open |
-| `hasPendingBackAwareDialog()` | Whether a dialog is open or a closed dialog's history entry is still being removed. An app that opens dialogs on its own should wait while this is true |
-| `subscribeBackAwareDialogs(listener)` | Calls `listener` when either answer may have changed; returns an unsubscribe function |
+| Export                                | Returns                                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hasOpenBackAwareDialog()`            | Whether any `BackAwareModal` is open                                                                                                                    |
+| `hasPendingBackAwareDialog()`         | Whether a dialog is open or a closed dialog's history entry is still being removed. An app that opens dialogs on its own should wait while this is true |
+| `subscribeBackAwareDialogs(listener)` | Calls `listener` when either answer may have changed; returns an unsubscribe function                                                                   |
 
 ```ts
-import { hasOpenBackAwareDialog, subscribeBackAwareDialogs } from '@dynamic-solutions-canada/web-app-kit'
+import {
+  hasOpenBackAwareDialog,
+  subscribeBackAwareDialogs,
+} from '@dynamic-solutions-canada/web-app-kit'
 
 subscribeBackAwareDialogs(() => {
   setAppBusy('dialog-open', hasOpenBackAwareDialog())
@@ -105,7 +108,9 @@ const restrictedImports = {
   rules: {
     'no-restricted-imports': [
       'error',
-      { paths: [...backAwareModalRestrictedImportPaths, ...appRestrictedPaths] },
+      {
+        paths: [...backAwareModalRestrictedImportPaths, ...appRestrictedPaths],
+      },
     ],
   },
 }

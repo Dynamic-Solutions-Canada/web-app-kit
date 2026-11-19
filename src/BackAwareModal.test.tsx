@@ -47,7 +47,10 @@ function isModalMounted(): boolean {
 
 function query(selector: string): Element {
   const element = dom.window.document.querySelector(selector)
-  assert.ok(element, `${selector} must be in the DOM for this test to mean anything`)
+  assert.ok(
+    element,
+    `${selector} must be in the DOM for this test to mean anything`,
+  )
   return element
 }
 
@@ -122,7 +125,11 @@ test('Back closes the open dialog, reported as closeClick with the Back marker',
   await settle()
 
   assert.deepEqual(requests, [{ reason: 'closeClick', fromBack: true }])
-  assert.equal(isModalMounted(), false, 'an accepted Back must close the dialog')
+  assert.equal(
+    isModalMounted(),
+    false,
+    'an accepted Back must close the dialog',
+  )
   assert.equal(kit.hasOpenBackAwareDialog(), false)
 })
 
@@ -188,7 +195,11 @@ test('a dialog opened over a declined close does not re-ask the one below', asyn
   inner.rerender(<Inner open={false} />)
   await settle()
 
-  assert.equal(requests.length, 1, 'closing the inner dialog must not re-ask the outer one')
+  assert.equal(
+    requests.length,
+    1,
+    'closing the inner dialog must not re-ask the outer one',
+  )
 })
 
 test('the close button closes the dialog by itself, exactly once', async () => {
@@ -204,8 +215,16 @@ test('the close button closes the dialog by itself, exactly once', async () => {
 // Two elements can be the scrim: Joy's backdrop slot, and `ModalOverflow`, which covers
 // the backdrop entirely in a scrolling dialog and reports `backdropClick` itself.
 const scrims = [
-  { name: 'the backdrop slot', selector: '.MuiModal-backdrop', overflow: false },
-  { name: 'the ModalOverflow scroller', selector: '.MuiModalOverflow-root', overflow: true },
+  {
+    name: 'the backdrop slot',
+    selector: '.MuiModal-backdrop',
+    overflow: false,
+  },
+  {
+    name: 'the ModalOverflow scroller',
+    selector: '.MuiModalOverflow-root',
+    overflow: true,
+  },
 ]
 
 function scrimBody(overflow: boolean): ReactNode {
@@ -219,7 +238,9 @@ for (const scrim of scrims) {
   test(`a click on ${scrim.name} does not close a dialog`, async () => {
     const requests = renderDialog({ children: scrimBody(scrim.overflow) })
     // The handlers ignore bubbled clicks, so the event must start on the scrim itself.
-    query(scrim.selector).dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+    query(scrim.selector).dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true }),
+    )
     await settle()
     assert.deepEqual(requests, [])
     assert.ok(isModalMounted())
@@ -230,7 +251,9 @@ for (const scrim of scrims) {
       children: scrimBody(scrim.overflow),
       dismissOnBackdropClick: true,
     })
-    query(scrim.selector).dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+    query(scrim.selector).dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true }),
+    )
     await settle()
     assert.deepEqual(requests, [{ reason: 'backdropClick', fromBack: false }])
   })
@@ -280,8 +303,15 @@ test('the read-only stack API follows open, close and the history step', async (
     assert.equal(kit.hasOpenBackAwareDialog(), false)
 
     await settle()
-    assert.equal(kit.hasPendingBackAwareDialog(), false, 'pending clears when the step lands')
-    assert.ok(notifications >= 3, `expected open, close and pop notifications, got ${notifications}`)
+    assert.equal(
+      kit.hasPendingBackAwareDialog(),
+      false,
+      'pending clears when the step lands',
+    )
+    assert.ok(
+      notifications >= 3,
+      `expected open, close and pop notifications, got ${notifications}`,
+    )
   } finally {
     unsubscribe()
   }
@@ -292,9 +322,18 @@ test('the read-only stack API follows open, close and the history step', async (
  * the deploy, and routers put their own keys in the same state. None of it may break Back.
  */
 const foreignStates: { name: string; state: unknown }[] = [
-  { name: "an app's old key", state: { __exampleAppDialogStack: ['dialog-1'], usr: 1 } },
-  { name: 'a malformed stack', state: { __webAppKitDialogStack: 'not-a-list', usr: 1 } },
-  { name: 'a non-string stack', state: { __webAppKitDialogStack: [1, 2], usr: 1 } },
+  {
+    name: "an app's old key",
+    state: { __exampleAppDialogStack: ['dialog-1'], usr: 1 },
+  },
+  {
+    name: 'a malformed stack',
+    state: { __webAppKitDialogStack: 'not-a-list', usr: 1 },
+  },
+  {
+    name: 'a non-string stack',
+    state: { __webAppKitDialogStack: [1, 2], usr: 1 },
+  },
   { name: 'a primitive', state: 'router-state' },
 ]
 
@@ -311,7 +350,11 @@ for (const { name, state } of foreignStates) {
     assert.equal(isModalMounted(), false)
     const after: unknown = dom.window.history.state
     if (typeof state === 'object' && state !== null && 'usr' in state) {
-      assert.equal((after as { usr?: unknown } | null)?.usr, 1, "the router's own keys survive")
+      assert.equal(
+        (after as { usr?: unknown } | null)?.usr,
+        1,
+        "the router's own keys survive",
+      )
     }
   })
 }
@@ -321,7 +364,11 @@ test('Escape inside an open listbox owned by the dialog closes only the popup', 
     decline: () => true,
     children: (
       <div>
-        <button type="button" aria-expanded="true" aria-controls="owned-listbox">
+        <button
+          type="button"
+          aria-expanded="true"
+          aria-controls="owned-listbox"
+        >
           choose
         </button>
         <ul id="owned-listbox" role="listbox">
@@ -352,16 +399,22 @@ test('a dialog closed by unmounting spends its history entry', async () => {
   }
   const page = testingLibrary.render(<Page show />)
   await settle()
-  const stackWhileOpen = (dom.window.history.state as Record<string, unknown> | null)
-    ?.__webAppKitDialogStack
+  const stackWhileOpen = (
+    dom.window.history.state as Record<string, unknown> | null
+  )?.__webAppKitDialogStack
   assert.ok(Array.isArray(stackWhileOpen) && stackWhileOpen.length === 1)
 
   page.rerender(<Page show={false} />)
   await settle()
 
-  const stackAfter = (dom.window.history.state as Record<string, unknown> | null)
-    ?.__webAppKitDialogStack
-  assert.deepEqual(stackAfter ?? [], [], 'the page must be back on an entry with no dialog')
+  const stackAfter = (
+    dom.window.history.state as Record<string, unknown> | null
+  )?.__webAppKitDialogStack
+  assert.deepEqual(
+    stackAfter ?? [],
+    [],
+    'the page must be back on an entry with no dialog',
+  )
   assert.equal(kit.hasPendingBackAwareDialog(), false)
 })
 
@@ -399,7 +452,11 @@ test('with two dialogs open, each Back closes only the top one', async () => {
   dom.window.history.back()
   await settle()
   assert.deepEqual(inner, [{ reason: 'closeClick', fromBack: true }])
-  assert.deepEqual(outer, [], 'the first Back must not reach the dialog underneath')
+  assert.deepEqual(
+    outer,
+    [],
+    'the first Back must not reach the dialog underneath',
+  )
   assert.equal(dom.window.document.querySelectorAll('.MuiModal-root').length, 1)
 
   dom.window.history.back()

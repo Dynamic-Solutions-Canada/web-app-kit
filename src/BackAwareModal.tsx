@@ -140,5 +140,7 @@ export function BackAwareModal({
 
   useDialogPopupAccessibility(modalRoot, open)
 
-  return <Modal ref={setModalRoot} open={open} onClose={handleClose} {...props} />
+  return (
+    <Modal ref={setModalRoot} open={open} onClose={handleClose} {...props} />
+  )
 }

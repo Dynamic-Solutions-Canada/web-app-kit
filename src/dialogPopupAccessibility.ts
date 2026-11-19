@@ -35,7 +35,9 @@ export function isDialogPopupEvent(
     return false
   }
 
-  const controls = root.querySelectorAll('[aria-expanded="true"][aria-controls]')
+  const controls = root.querySelectorAll(
+    '[aria-expanded="true"][aria-controls]',
+  )
   for (const control of controls) {
     for (const id of controlledIds(control)) {
       const popup = root.ownerDocument.getElementById(id)

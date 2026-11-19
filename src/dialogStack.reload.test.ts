@@ -27,7 +27,10 @@ function settle(ms = 60): Promise<void> {
  * it opens must clear that entry, and Back must close it.
  */
 test("after a reload, a previous load's dialog entry does not break Back", async () => {
-  dom.window.history.replaceState({ __webAppKitDialogStack: ['old-load:1'], usr: 1 }, '')
+  dom.window.history.replaceState(
+    { __webAppKitDialogStack: ['old-load:1'], usr: 1 },
+    '',
+  )
   const freshStack = await import('./dialogStack.js')
 
   let requests = 0

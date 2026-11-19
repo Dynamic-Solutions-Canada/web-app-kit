@@ -1,0 +1,4 @@
+# npm writes the lockfile; formatting it would only fight the next install.
+package-lock.json
+# Build output from `prepare`, ignored by git.
+dist/
