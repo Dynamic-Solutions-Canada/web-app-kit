@@ -1,6 +1,6 @@
 # web-app-kit: Agent Instructions
 
-web-app-kit is the shared React and Joy UI package for the Dynamic Solutions web apps. It holds UI primitives that have reached a third copy across the apps: `BackAwareModal` with its opt-in lint guard, and `EmptyState`. Apps install it as a runtime dependency pinned to a git tag; the tag's `prepare` script builds it on install. It is MIT licensed and builds on no other kit; devkit is a development dependency only.
+web-app-kit is the shared React and Joy UI package for the Dynamic Solutions web apps. It holds UI primitives that have reached a third copy across the apps: `BackAwareModal` with its opt-in lint guard, `EmptyState`, and `useResetOnChange`. Apps install it as a runtime dependency pinned to a git tag; the tag's `prepare` script builds it on install. It is MIT licensed and builds on no other kit; devkit is a development dependency only.
 
 ## Standards
 
@@ -18,6 +18,7 @@ web-app-kit owns shared web UI primitives and their lint guards. It does not own
 | Back-gesture marker on close events                 | `src/backGesture.ts`                  |
 | Escape and accessibility fixes for in-dialog popups | `src/dialogPopupAccessibility.ts`     |
 | Empty-state surface and its public class names      | `src/EmptyState.tsx`                  |
+| Reset state during render when a prop changes       | `src/useResetOnChange.ts`             |
 | Lint guard (`./eslint` export)                      | `src/eslint.ts`                       |
 | Tests and the jsdom bootstrap                       | `src/*.test.ts(x)`, `src/test-utils/` |
 | React 18 test pass                                  | `scripts/test-react18.mjs`            |
@@ -25,7 +26,9 @@ web-app-kit owns shared web UI primitives and their lint guards. It does not own
 ## Behaviour
 
 - Every close is a request: the X, Escape, a button and Back all reach `onClose`, and a dialog's history entry is spent only when it actually closes. A change that pops history when a close is requested breaks dialogs that decline (an unsaved-changes prompt).
-- Back restores the entries it went past before asking the dialogs to close; a declined Back must leave the next Back working.
+- Back returns to the entries it went past before asking the dialogs to close; a declined Back must leave the next Back working.
+- Nothing the kit does in answer to Back may push a history entry. Chromium marks every entry of a page skippable when it adds one without a user activation, and ignores earlier activation after a Back button press. Return to an entry by traversing to it, and give a dialog opened after a Back the spare entry instead of a new one. A browser check of this reads the DevTools Audits `NavigationEntryMarkedSkippable` issue; `goBack()` alone cannot show it.
+- `suspended` hides a dialog without closing it: the entry, the stack registration and the mounted children all stay.
 - Unmounting spends the entry only while the current entry is still the dialog's own; after a route change, history is left alone so the navigation is not undone.
 - Scrim clicks never reach `onClose` unless `dismissOnBackdropClick` is set.
 - `emptyStateClasses` names are public API that apps style against; renaming or removing one, or moving one to a different part, is a breaking change. Default colours come only from Joy theme tokens.

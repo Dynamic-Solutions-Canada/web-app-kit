@@ -10,3 +10,4 @@ export {
   emptyStateClasses,
   type EmptyStateProps,
 } from './EmptyState.js'
+export { useResetOnChange } from './useResetOnChange.js'

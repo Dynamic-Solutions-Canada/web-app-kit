@@ -86,7 +86,7 @@ jobs:
             echo
             echo "## Using this version"
             echo
-            echo "Change the \`#v...\` suffix of the web-app-kit dependency in your app's \`package.json\` to \`#$TAG\`, run \`npm install\` and then \`npm install-scripts approve @dynamic-solutions-canada/web-app-kit@$VERSION\`, and commit the pin bump with its lockfile. See the README for setup."
+            echo "Change the \`#v...\` suffix of the web-app-kit dependency in your app's \`package.json\` to \`#$TAG\`, run \`npm install\`, and commit the pin bump with its lockfile. The name-only \`allowScripts\` key from setup covers every tag. See the README for setup."
             echo
             echo "*AI disclosure: this release and the related code were written with the assistance of AI.*"
           } > "$RUNNER_TEMP/release-body.md"

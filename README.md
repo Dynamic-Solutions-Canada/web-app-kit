@@ -1,6 +1,6 @@
 # web-app-kit
 
-web-app-kit holds the React UI primitives the Dynamic Solutions web apps share once a piece has reached its third copy. It is built on Joy UI. Apps install it as a runtime dependency pinned to a git tag. It provides `BackAwareModal`, the dialog that browser and Android Back close instead of navigating the page away, with an opt-in lint rule that keeps every dialog on it, and `EmptyState`, the one surface for a list or page with nothing to show.
+web-app-kit holds the React UI primitives the Dynamic Solutions web apps share once a piece has reached its third copy. It is built on Joy UI. Apps install it as a runtime dependency pinned to a git tag. It provides `BackAwareModal`, the dialog that browser and Android Back close instead of navigating the page away, with an opt-in lint rule that keeps every dialog on it; `EmptyState`, the one surface for a list or page with nothing to show; and `useResetOnChange`, which resets local state when a prop changes.
 
 The kit holds no app names, strings or app behaviour. Where apps need different behaviour, the kit offers a general option, event or hook, and the policy stays in the app.
 
@@ -12,15 +12,22 @@ npm install --save-exact github:Dynamic-Solutions-Canada/web-app-kit#vX.Y.Z
 
 Pin a tag, and keep every app on the same tag. Changes reach apps only through a new tag.
 
-The package is built from source when it installs: npm clones the tag, installs the kit's development dependencies and runs its `prepare` script, which compiles `dist/`. No build output is committed. npm 11 then lists the package as having an unreviewed install script, so approve it once in the app:
+The package is built from source when it installs: npm clones the tag, installs the kit's development dependencies and runs its `prepare` script, which compiles `dist/`. No build output is committed. npm 11 warns that the package's `prepare` script is not covered by `allowScripts`, so approve it once in the app, without a version pin:
 
 ```bash
-npm install-scripts approve @dynamic-solutions-canada/web-app-kit@X.Y.Z
+npm install-scripts approve --no-allow-scripts-pin @dynamic-solutions-canada/web-app-kit
 ```
 
-Do not install with `--ignore-scripts` (for example `npm ci --ignore-scripts` in a Dockerfile): it also skips the kit's build, the package arrives without `dist/`, and the app's build cannot import it. Under npm 11, `allowScripts` already decides which install scripts run.
+That writes `"github:Dynamic-Solutions-Canada/web-app-kit": true` to `allowScripts`, and it covers every later tag, so a bump needs no new approval. What npm 11.19.1 does with a git dependency, measured on a scratch app:
 
-The approval key includes the version, so a tag bump approves the new version in the same commit. With npm 11.19.1 the build runs whether or not the script is approved. Approve it rather than deny it, so the install keeps working if npm starts enforcing approval for git dependencies.
+- **The build is not gated.** npm runs a git dependency's `prepare` while it fetches the package, before `allowScripts` is consulted, so the kit builds with an approval, without one, and even with a denial. The approval only silences the warning, and keeps the install working if npm starts enforcing it.
+- **Only a git-form key matches.** `@dynamic-solutions-canada/web-app-kit` and `@dynamic-solutions-canada/web-app-kit@X.Y.Z` are registry keys, which npm never matches against a git dependency; with either, the warning stays.
+- **The warning appears only when npm resolves the tag afresh**, on the first install and on a tag bump. A reinstall from the lockfile and `npm ci` print nothing either way, so check a key on a bump, not on a reinstall.
+- **The default pinned approval goes stale.** Without `--no-allow-scripts-pin`, `approve` writes `github:Dynamic-Solutions-Canada/web-app-kit#<commit>`, which stops matching at the next tag.
+
+The tag in `dependencies` and the lockfile's commit already pin the code that runs, so the name-only key loses nothing.
+
+Do not install with `--ignore-scripts` (for example `npm ci --ignore-scripts` in a Dockerfile): it is the one setting that does skip the kit's build, the package arrives without `dist/`, and the app's build cannot import it.
 
 The app supplies the peer dependencies:
 
@@ -32,7 +39,7 @@ The app supplies the peer dependencies:
 
 ## BackAwareModal
 
-A drop-in replacement for Joy's `Modal`. It takes every `Modal` prop, plus one of its own.
+A drop-in replacement for Joy's `Modal`. It takes every `Modal` prop, plus two of its own: `dismissOnBackdropClick` and `suspended`.
 
 ```tsx
 import { ModalClose, ModalDialog } from '@mui/joy'
@@ -60,8 +67,19 @@ What it does:
 - **Escape in an open Select or Menu** closes that popup only. The next Escape closes the dialog.
 - **Focus** moves into the dialog when it opens and returns to the control that opened it when it closes (Joy's defaults, left on).
 - **Scroll position** of the page underneath is kept across the dialog's history steps.
+- **`suspended` hides a dialog without closing it**, for a surface that must briefly give way, such as a loading gate shown while the app's data refreshes. A suspended dialog keeps its history entry and its place in the stack, its children stay mounted so their state survives, and `hasOpenBackAwareDialog()` stays true. A Back while suspended asks the dialog to close, exactly as if it were showing. Pass `open={open} suspended={!dataReady}` rather than `open={open && dataReady}`, which would close the dialog and lose its state.
 
 Closing by unmounting (`{open && <Dialog />}`) works too. If a route change unmounts an open dialog, the kit leaves history alone, so the navigation is not undone.
+
+### How the history entries work
+
+Chrome skips history entries that a page adds without a user activation: its Back button jumps over every entry of that page, and on Android, in a tab with nothing behind the page, Back closes the tab. After a Back button press Chrome also stops counting the page's earlier taps until the next one. So the kit never adds an entry in answer to Back:
+
+- Each dialog opened from a tap or key press pushes its own entry and one spare entry above it, then steps back onto its own. This makes one extra history step, and so one extra `popstate`, whenever a dialog opens.
+- When Back goes past a dialog, the kit returns to the dialog's entry by stepping forward to it, then asks the dialog to close. A declined Back adds nothing.
+- A dialog opened in answer to Back, such as a "Discard changes?" prompt raised from `onClose`, claims the spare instead of pushing. When that prompt closes, its entry becomes the spare again, so the prompt can be raised and dismissed with Back any number of times.
+
+The browser's Forward button can land on a spare or on a closed dialog's entry. The kit steps straight back off it, so Forward does nothing visible.
 
 Joy's `ModalClose` is an icon-only button with no accessible name. Give it an `aria-label` from the app's translations, as above. The kit renders no `ModalClose` of its own.
 
@@ -196,7 +214,7 @@ const restrictedImports = {
 
 - Replace the app's own copy and its history helper; do not keep both. An app's old history key, left in a tab that stays open across the deploy, is ignored, and a stale entry costs at most one Back that does nothing.
 - Move the app's "dialog is open" hookups (an app-busy registry, a native Back handler) onto the read-only stack exports above.
-- Before shipping, check Back on a real device: Android's Back gesture and a desktop browser's Back button, on a dialog that closes and on one that declines to close. Chrome can skip history entries created without a user gesture, which automated tests do not exercise.
+- Before shipping, check Back on a real device: Android's Back gesture and a desktop browser's Back button, on a dialog that closes, on one that declines twice in a row with no tap between, and on a prompt raised from `onClose`. Chrome's entry skipping only affects the real Back button; automated `goBack()` calls do not exercise it.
 - `EmptyState` keeps the props of the copies it replaces, with `title` and `description` widened to any `ReactNode`. Move an app-specific look out of the component and into the app's theme through the class names above.
 - Behaviour that may differ from an older copy of `BackAwareModal`: scrim clicks no longer close, Back arrives as `closeClick` rather than `backdropClick`, focus handling is on, and a declined close keeps the dialog's history entry.
 
@@ -207,7 +225,48 @@ const restrictedImports = {
 - **React 18 support is temporary.** The peer range covers React 18 for the apps still on it, and the kit's tests run on both majors (`npm run test:react18`). The range narrows to `^19` once every app has upgraded.
 - **Private repository, for now.** Installing a tag needs git access to this repo wherever the app installs: developer machines, the app's CI, and any image build. This goes away when the repo is made public.
 - **Install cost.** Because the kit builds on install, the first install of a tag downloads its development dependencies. npm caches the result.
-- **Development StrictMode.** A dialog's history entry is pushed one task after it opens, so React's StrictMode double mount leaves no extra entry.
+- **Back, and entries Chrome may skip.** The kit adds no entry in answer to Back (see [How the history entries work](#how-the-history-entries-work)), with three exceptions. Each one can make Chrome's Back skip the page until the user next taps it:
+  - a third dialog opened in answer to Back, over a prompt that itself opened in answer to Back;
+  - a dialog opened before the user has interacted with the page at all, such as an announcement on load;
+  - a Back that jumps further than the page under the dialogs, for example from the history menu.
+- **Development StrictMode.** A dialog's history entries are pushed one task after it opens, so React's StrictMode double mount leaves no extra entry.
+
+## useResetOnChange
+
+Resets local state when some values change, during render rather than in an effect. This is React's documented pattern for adjusting state when a prop changes. React applies the reset before the browser paints, so stale values never flash. An effect that calls a setter would flash for a frame, and `react-hooks/set-state-in-effect` rejects it.
+
+```tsx
+import { useState } from 'react'
+import { useResetOnChange } from '@dynamic-solutions-canada/web-app-kit'
+
+export function NameField({ savedName }: { savedName: string }) {
+  const [draft, setDraft] = useState(savedName)
+  useResetOnChange([savedName], () => {
+    setDraft(savedName)
+  })
+  return (
+    <input value={draft} onChange={(event) => setDraft(event.target.value)} />
+  )
+}
+```
+
+- `values` is compared with the previous render's by `Object.is`, like an effect's dependency list.
+- `reset` is not called on the first render, so start each `useState` at the value a reset produces.
+- `reset` runs during render, so it may only call this component's own state setters.
+
+## Reading the latest value from an effect
+
+An effect or a listener it registers often needs the latest prop or callback without re-subscribing whenever it changes. The kit does not export a helper for this:
+
+- **React 19:** use React's `useEffectEvent`. Call the function it returns only from effects and the listeners they register; `react-hooks` 7 checks this.
+- **React 18:** store the value in a ref from a layout effect, never during render, which `react-hooks/refs` rejects:
+
+```ts
+const onChangeRef = useRef(onChange)
+useLayoutEffect(() => {
+  onChangeRef.current = onChange
+})
+```
 
 ## Developers
 

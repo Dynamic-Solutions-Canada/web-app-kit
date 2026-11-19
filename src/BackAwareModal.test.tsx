@@ -259,7 +259,7 @@ for (const scrim of scrims) {
   })
 }
 
-test('under StrictMode, opening pushes one entry and one Back closes the dialog', async () => {
+test('under StrictMode, opening pushes one entry and its spare, and one Back closes the dialog', async () => {
   // Counted at the source: `history.length` also counts forward entries earlier tests left.
   const history = dom.window.history
   const originalPushState = history.pushState.bind(history)
@@ -275,8 +275,9 @@ test('under StrictMode, opening pushes one entry and one Back closes the dialog'
   } finally {
     history.pushState = originalPushState
   }
-  // The StrictMode probe mounts, unmounts and remounts; only the remount may push.
-  assert.equal(pushes, 1, 'exactly one entry per open dialog')
+  // The StrictMode probe mounts, unmounts and remounts; only the remount may push: the
+  // dialog's own entry and the spare above it.
+  assert.equal(pushes, 2, 'one entry and one spare per open dialog')
 
   dom.window.history.back()
   await settle()
@@ -462,6 +463,405 @@ test('with two dialogs open, each Back closes only the top one', async () => {
   dom.window.history.back()
   await settle()
   assert.deepEqual(outer, [{ reason: 'closeClick', fromBack: true }])
+  assert.equal(isModalMounted(), false)
+  assert.equal(dom.window.location.href, 'http://localhost/')
+})
+
+// ---------------------------------------------------------------------------------------
+// Chromium's history manipulation intervention
+//
+// Chromium marks every entry of a page skippable when the page adds an entry without a
+// user activation, and after a Back button press it ignores the page's earlier activation
+// until the next gesture. So nothing the kit does in answer to Back may push an entry.
+// ---------------------------------------------------------------------------------------
+
+/** Counts `history.pushState` calls from now until `stop()`. */
+function countPushes(): { count: () => number; stop: () => void } {
+  const history = dom.window.history
+  const originalPushState = history.pushState.bind(history)
+  let pushes = 0
+  history.pushState = (...args: Parameters<History['pushState']>) => {
+    pushes += 1
+    originalPushState(...args)
+  }
+  return {
+    count: () => pushes,
+    stop: () => {
+      history.pushState = originalPushState
+    },
+  }
+}
+
+/** A tap somewhere on the page, which Chromium counts as a user activation. */
+function tap(): void {
+  dom.window.document.body.dispatchEvent(
+    new dom.window.PointerEvent('pointerdown', { bubbles: true }),
+  )
+}
+
+function currentStack(): unknown {
+  return (dom.window.history.state as Record<string, unknown> | null)
+    ?.__webAppKitDialogStack
+}
+
+test('a Back the dialog declines, twice, adds no history entry', async () => {
+  const requests = renderDialog({ decline: () => requests.length < 3 })
+  await settle()
+  const pushes = countPushes()
+  try {
+    dom.window.history.back()
+    await settle()
+    dom.window.history.back()
+    await settle()
+    assert.ok(isModalMounted(), 'two declined Backs must leave the dialog open')
+    assert.equal(pushes.count(), 0, 'a declined Back must not push')
+
+    dom.window.history.back()
+    await settle()
+    assert.equal(isModalMounted(), false, 'the third Back is accepted')
+    assert.equal(pushes.count(), 0)
+  } finally {
+    pushes.stop()
+  }
+  assert.deepEqual(currentStack() ?? [], [])
+})
+
+test('a Back the dialog accepts adds no history entry', async () => {
+  renderDialog({})
+  await settle()
+  const pushes = countPushes()
+  try {
+    dom.window.history.back()
+    await settle()
+  } finally {
+    pushes.stop()
+  }
+  assert.equal(isModalMounted(), false)
+  assert.equal(pushes.count(), 0)
+})
+
+/**
+ * The pattern the README describes: an editor answers a close request with a nested
+ * "Discard changes?" prompt. Opened in answer to Back, the prompt must claim the spare
+ * rather than push, and so must the second prompt after a Back dismissed the first.
+ */
+test('a prompt opened in answer to Back claims the spare instead of pushing', async () => {
+  let discard: () => void = () => {}
+  function Editor() {
+    const [editorOpen, setEditorOpen] = React.useState(true)
+    const [promptOpen, setPromptOpen] = React.useState(false)
+    discard = () => {
+      setPromptOpen(false)
+      setEditorOpen(false)
+    }
+    return (
+      <>
+        <kit.BackAwareModal
+          open={editorOpen}
+          onClose={() => setPromptOpen(true)}
+        >
+          <Joy.ModalDialog>editor</Joy.ModalDialog>
+        </kit.BackAwareModal>
+        <kit.BackAwareModal
+          open={promptOpen}
+          onClose={() => setPromptOpen(false)}
+        >
+          <Joy.ModalDialog>discard changes?</Joy.ModalDialog>
+        </kit.BackAwareModal>
+      </>
+    )
+  }
+  testingLibrary.render(<Editor />)
+  await settle()
+  const pushes = countPushes()
+  const openDialogs = () =>
+    dom.window.document.querySelectorAll('.MuiModal-root').length
+  try {
+    dom.window.history.back()
+    await settle()
+    assert.equal(openDialogs(), 2, 'Back raises the prompt over the editor')
+    assert.equal(
+      (currentStack() as string[]).length,
+      2,
+      'the claimed spare is now the prompt entry',
+    )
+
+    dom.window.history.back()
+    await settle()
+    assert.equal(openDialogs(), 1, 'Back on the prompt closes only the prompt')
+
+    dom.window.history.back()
+    await settle()
+    assert.equal(openDialogs(), 2, 'the next Back raises the prompt again')
+    assert.equal(pushes.count(), 0, 'no prompt opened on Back may push')
+
+    testingLibrary.act(() => discard())
+    await settle()
+  } finally {
+    pushes.stop()
+  }
+  assert.equal(isModalMounted(), false)
+  assert.equal(kit.hasPendingBackAwareDialog(), false)
+  assert.deepEqual(currentStack() ?? [], [])
+  assert.equal(dom.window.location.href, 'http://localhost/')
+})
+
+test('after a tap, a nested dialog pushes its own entry and spare', async () => {
+  renderDialog({})
+  await settle()
+  const pushes = countPushes()
+  try {
+    tap()
+    renderDialog({ children: 'inner dialog' })
+    await settle()
+  } finally {
+    pushes.stop()
+  }
+  assert.equal(pushes.count(), 2)
+
+  dom.window.history.back()
+  await settle()
+  assert.equal(dom.window.document.querySelectorAll('.MuiModal-root').length, 1)
+  dom.window.history.back()
+  await settle()
+  assert.equal(isModalMounted(), false)
+})
+
+test('Forward onto a spare while the dialog is open steps back to the dialog', async () => {
+  const requests = renderDialog({})
+  await settle()
+  dom.window.history.forward()
+  await settle()
+  assert.ok(isModalMounted())
+  assert.deepEqual(requests, [], 'Forward is not a close request')
+  assert.equal(
+    (currentStack() as string[]).length,
+    1,
+    'back on the dialog entry',
+  )
+
+  dom.window.history.back()
+  await settle()
+  assert.equal(isModalMounted(), false, 'Back still closes it afterwards')
+})
+
+test('Forward after a dialog closed does not reopen anything or strand the page', async () => {
+  renderDialog({})
+  await settle()
+  clickCloseButton()
+  await settle()
+  dom.window.history.forward()
+  await settle()
+  assert.equal(isModalMounted(), false)
+  assert.deepEqual(currentStack() ?? [], [])
+  assert.equal(kit.hasPendingBackAwareDialog(), false)
+})
+
+// ---------------------------------------------------------------------------------------
+// suspended
+// ---------------------------------------------------------------------------------------
+
+/** A dialog whose child counts clicks, so a remount (lost state) would show as 0. */
+function renderSuspendable(decline: () => boolean) {
+  const requests: CloseRequest[] = []
+  let setSuspended: (value: boolean) => void = () => {}
+  function Counter() {
+    const [count, setCount] = React.useState(0)
+    return (
+      <button type="button" id="counter" onClick={() => setCount(count + 1)}>
+        {String(count)}
+      </button>
+    )
+  }
+  function Harness() {
+    const [open, setOpen] = React.useState(true)
+    const [suspended, setSuspendedState] = React.useState(false)
+    setSuspended = setSuspendedState
+    return (
+      <kit.BackAwareModal
+        open={open}
+        suspended={suspended}
+        onClose={(event, reason) => {
+          requests.push({ reason, fromBack: kit.isBackGestureClose(event) })
+          if (!decline()) {
+            setOpen(false)
+          }
+        }}
+      >
+        <Joy.ModalDialog>
+          <Counter />
+        </Joy.ModalDialog>
+      </kit.BackAwareModal>
+    )
+  }
+  testingLibrary.render(<Harness />)
+  return {
+    requests,
+    suspend: (value: boolean) => {
+      testingLibrary.act(() => setSuspended(value))
+    },
+  }
+}
+
+function modalRootHidden(): boolean {
+  return query('.MuiModal-root').getAttribute('aria-hidden') === 'true'
+}
+
+test('a suspended dialog is hidden but stays open, mounted and in the stack', async () => {
+  const dialog = renderSuspendable(() => true)
+  await settle()
+  testingLibrary.act(() => {
+    ;(query('#counter') as HTMLButtonElement).click()
+  })
+  assert.equal(query('#counter').textContent, '1')
+  const stackBefore = currentStack()
+
+  dialog.suspend(true)
+  await settle()
+  assert.ok(modalRootHidden(), 'the surface is hidden while suspended')
+  assert.equal(query('#counter').textContent, '1', 'children keep their state')
+  assert.equal(kit.hasOpenBackAwareDialog(), true)
+  assert.deepEqual(currentStack(), stackBefore, 'the history entry is kept')
+
+  dialog.suspend(false)
+  await settle()
+  assert.equal(modalRootHidden(), false, 'it shows again')
+  assert.equal(query('#counter').textContent, '1')
+  assert.deepEqual(dialog.requests, [])
+})
+
+test('a Back while suspended asks the dialog to close, as if it were showing', async () => {
+  let declining = true
+  const dialog = renderSuspendable(() => declining)
+  await settle()
+  dialog.suspend(true)
+  await settle()
+
+  dom.window.history.back()
+  await settle()
+  assert.deepEqual(dialog.requests, [{ reason: 'closeClick', fromBack: true }])
+  assert.equal(kit.hasOpenBackAwareDialog(), true, 'a declined Back keeps it')
+
+  declining = false
+  dom.window.history.back()
+  await settle()
+  assert.equal(dialog.requests.length, 2)
+  assert.equal(
+    kit.hasOpenBackAwareDialog(),
+    false,
+    'an accepted Back closes it',
+  )
+  assert.equal(isModalMounted(), false, 'and it unmounts once closed')
+  assert.deepEqual(currentStack() ?? [], [])
+})
+
+// ---------------------------------------------------------------------------------------
+// Dialogs that change while one of the kit's own history steps is landing
+// ---------------------------------------------------------------------------------------
+
+test('a dialog that replaces another in one update stays open until its own Back', async () => {
+  const asked: string[] = []
+  let swap: () => void = () => {}
+  function Swap() {
+    const [first, setFirst] = React.useState(true)
+    const [second, setSecond] = React.useState(false)
+    swap = () => {
+      setFirst(false)
+      setSecond(true)
+    }
+    return (
+      <>
+        <kit.BackAwareModal
+          open={first}
+          onClose={() => {
+            asked.push('first')
+            setFirst(false)
+          }}
+        >
+          <Joy.ModalDialog>first</Joy.ModalDialog>
+        </kit.BackAwareModal>
+        <kit.BackAwareModal
+          open={second}
+          onClose={() => {
+            asked.push('second')
+            setSecond(false)
+          }}
+        >
+          <Joy.ModalDialog>second</Joy.ModalDialog>
+        </kit.BackAwareModal>
+      </>
+    )
+  }
+  testingLibrary.render(<Swap />)
+  await settle()
+
+  // A forward step would mean the kit took its own step back for a user Back.
+  const history = dom.window.history
+  const originalGo = history.go.bind(history)
+  let forwardSteps = 0
+  history.go = (delta?: number) => {
+    if ((delta ?? 0) > 0) {
+      forwardSteps += 1
+    }
+    originalGo(delta)
+  }
+  try {
+    testingLibrary.act(() => swap())
+    // Long enough for every step the swap starts to land, so a late request would show.
+    await settle(300)
+  } finally {
+    history.go = originalGo
+  }
+  assert.equal(forwardSteps, 0, "the kit's own step back is not a Back")
+  assert.deepEqual(asked, [], 'nobody pressed Back, so nobody is asked')
+  assert.equal(kit.hasOpenBackAwareDialog(), true, 'the second dialog is open')
+  assert.equal((currentStack() as string[] | undefined)?.length, 1)
+
+  dom.window.history.back()
+  await settle()
+  assert.deepEqual(asked, ['second'])
+  assert.equal(isModalMounted(), false)
+  assert.equal(dom.window.location.href, 'http://localhost/')
+})
+
+test('two dialogs opened in one render each get an entry, and each Back closes one', async () => {
+  const asked: string[] = []
+  function Pair() {
+    const [outer, setOuter] = React.useState(true)
+    const [inner, setInner] = React.useState(true)
+    return (
+      <>
+        <kit.BackAwareModal
+          open={outer}
+          onClose={() => {
+            asked.push('outer')
+            setOuter(false)
+          }}
+        >
+          <Joy.ModalDialog>outer</Joy.ModalDialog>
+        </kit.BackAwareModal>
+        <kit.BackAwareModal
+          open={inner}
+          onClose={() => {
+            asked.push('inner')
+            setInner(false)
+          }}
+        >
+          <Joy.ModalDialog>inner</Joy.ModalDialog>
+        </kit.BackAwareModal>
+      </>
+    )
+  }
+  testingLibrary.render(<Pair />)
+  await settle()
+  assert.equal((currentStack() as string[] | undefined)?.length, 2)
+
+  dom.window.history.back()
+  await settle()
+  assert.deepEqual(asked, ['inner'])
+  dom.window.history.back()
+  await settle()
+  assert.deepEqual(asked, ['inner', 'outer'])
   assert.equal(isModalMounted(), false)
   assert.equal(dom.window.location.href, 'http://localhost/')
 })

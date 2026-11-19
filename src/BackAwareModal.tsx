@@ -22,7 +22,7 @@ import {
 type JoyModalProps = ComponentProps<typeof Modal>
 type JoyModalOnClose = NonNullable<JoyModalProps['onClose']>
 
-/** Joy's `Modal` props, plus the one option this wrapper adds. */
+/** Joy's `Modal` props, plus the options this wrapper adds. */
 export interface BackAwareModalProps extends JoyModalProps {
   /**
    * Let a click on the scrim dismiss this dialog. Off by default.
@@ -36,6 +36,17 @@ export interface BackAwareModalProps extends JoyModalProps {
    * I am looking past", which in practice means an image viewer.
    */
   dismissOnBackdropClick?: boolean
+  /**
+   * Hide an open dialog for a while without closing it. Off by default.
+   *
+   * For a surface that must briefly give way, such as a loading gate that covers the app
+   * while its data refreshes. While suspended, the dialog's surface is hidden and stops
+   * trapping focus, but it is still open: it keeps its history entry and its place in the
+   * stack, its children stay mounted so their state survives, and `hasOpenBackAwareDialog`
+   * stays true. A Back while suspended asks the dialog to close, exactly as if it were
+   * showing. Setting it back to false shows the dialog again.
+   */
+  suspended?: boolean
 }
 
 /**
@@ -61,6 +72,8 @@ export function BackAwareModal({
   open,
   onClose,
   dismissOnBackdropClick = false,
+  suspended = false,
+  keepMounted = false,
   ...props
 }: BackAwareModalProps) {
   const previousOpenRef = useRef(open)
@@ -138,9 +151,18 @@ export function BackAwareModal({
     [dismissOnBackdropClick, modalRoot],
   )
 
-  useDialogPopupAccessibility(modalRoot, open)
+  // Suspending shows Joy a closed modal that stays mounted: Joy hides it and releases the
+  // focus trap and scroll lock, while the stack above still treats the dialog as open.
+  const showing = open && !suspended
+  useDialogPopupAccessibility(modalRoot, showing)
 
   return (
-    <Modal ref={setModalRoot} open={open} onClose={handleClose} {...props} />
+    <Modal
+      ref={setModalRoot}
+      open={showing}
+      keepMounted={keepMounted || (open && suspended)}
+      onClose={handleClose}
+      {...props}
+    />
   )
 }
