@@ -38,12 +38,17 @@ A drop-in replacement for Joy's `Modal`. It takes every `Modal` prop, plus one o
 import { ModalClose, ModalDialog } from '@mui/joy'
 import { BackAwareModal } from '@dynamic-solutions-canada/web-app-kit'
 
-;<BackAwareModal open={open} onClose={() => setOpen(false)}>
-  <ModalDialog>
-    <ModalClose aria-label={t('dialog.close')} />
-    ...
-  </ModalDialog>
-</BackAwareModal>
+export function RenameDialog({ open, onClose }: RenameDialogProps) {
+  const { t } = useTranslation()
+  return (
+    <BackAwareModal open={open} onClose={onClose}>
+      <ModalDialog>
+        <ModalClose aria-label={t('dialog.close')} />
+        {/* the dialog's content */}
+      </ModalDialog>
+    </BackAwareModal>
+  )
+}
 ```
 
 What it does:
@@ -131,6 +136,12 @@ const restrictedImports = {
 - **Private repository, for now.** Installing a tag needs git access to this repo wherever the app installs: developer machines, the app's CI, and any image build. This goes away when the repo is made public.
 - **Install cost.** Because the kit builds on install, the first install of a tag downloads its development dependencies. npm caches the result.
 - **Development StrictMode.** A dialog's history entry is pushed one task after it opens, so React's StrictMode double mount leaves no extra entry.
+
+## Developers
+
+- Commands, architecture and conventions for working on the kit: [AGENTS.md](AGENTS.md)
+- Releasing a version: the [`release` skill](.agents/skills/release/SKILL.md)
+- Security reports: [SECURITY.md](.github/SECURITY.md)
 
 ## License
 

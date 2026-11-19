@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  # One root manifest; the kit has no workspaces.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # A public package.json reads as a library, whose default strategy widens exact pins into
+    # ranges. This bumps a constraint only when the new version falls outside it: the exact
+    # development pins move (PLAT-10), and peer ranges that already admit the new version stay.
+    # The peer ranges are policy and are changed by hand, so check a Dependabot PR leaves
+    # peerDependencies alone.
+    versioning-strategy: increase-if-necessary
+    ignore:
+      # devkit is pinned to a release tag and bumped by hand, following the consumer steps in
+      # its release notes. Dependabot misreads its git tags and proposes downgrades.
+      - dependency-name: "@dynamic-solutions-canada/devkit"
+    groups:
+      npm:
+        patterns: ["*"]
+
+  # Workflows live only in the root .github/workflows.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

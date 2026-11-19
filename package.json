@@ -30,11 +30,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepare": "npm run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
-    "test:react18": "node scripts/test-react18.mjs"
+    "test": "devkit-test",
+    "test:react18": "node scripts/test-react18.mjs",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test"
   },
   "//": [
+    "typescript is the TypeScript 6 compatibility package only because typescript-eslint 8.73.0 needs typescript <6.1.0 (a JS API); revisit when typescript-eslint supports TypeScript 7. @typescript/native is TypeScript 7 and owns the tsc bin, so typecheck and build run on TypeScript 7.",
+    "The eslint-plugin-jsx-a11y override: 6.10.2 declares eslint up to ^9 but works on ESLint 10; remove it when a release declares ^10.",
     "React 18 is tested by test:react18, which swaps React in place for one run; the peer range narrows to ^19 once every consumer has upgraded."
   ],
   "peerDependencies": {
@@ -49,8 +55,10 @@
     }
   },
   "devDependencies": {
+    "@dynamic-solutions-canada/devkit": "github:Dynamic-Solutions-Canada/devkit#v0.24.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@eslint/js": "10.0.1",
     "@mui/joy": "5.0.0-beta.52",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
@@ -58,14 +66,27 @@
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@typescript/native": "npm:typescript@7.0.2",
     "eslint": "10.15.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
     "jsdom": "31.0.1",
+    "lefthook": "2.2.2",
+    "prettier": "3.10.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "tsx": "4.23.15",
-    "typescript": "7.0.2"
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript-eslint": "8.73.0"
   },
   "allowScripts": {
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "lefthook": false
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
   }
 }

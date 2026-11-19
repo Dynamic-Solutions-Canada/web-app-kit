@@ -1,0 +1,7 @@
+# Git hooks (HYG-10), installed once per clone with `npx lefthook install`. They check staged files
+# only and stay fast; lint, format and tests belong to validate and CI.
+pre-commit:
+  commands:
+    # devkit's shared check refuses staged secrets, keys, env files and files over 5 MB.
+    forbidden-files:
+      run: npx devkit-precommit --max-size 5MB
