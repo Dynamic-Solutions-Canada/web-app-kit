@@ -1,6 +1,6 @@
 {
   "name": "@dynamic-solutions-canada/web-app-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared React and Joy UI primitives for Dynamic Solutions web apps.",
   "license": "MIT",
   "type": "module",
