@@ -1,6 +1,6 @@
 # web-app-kit: Agent Instructions
 
-web-app-kit is the shared React and Joy UI package for the Dynamic Solutions web apps. It holds UI primitives that have reached a third copy across the apps, starting with `BackAwareModal` and its opt-in lint guard. Apps install it as a runtime dependency pinned to a git tag; the tag's `prepare` script builds it on install. It is MIT licensed and builds on no other kit; devkit is a development dependency only.
+web-app-kit is the shared React and Joy UI package for the Dynamic Solutions web apps. It holds UI primitives that have reached a third copy across the apps: `BackAwareModal` with its opt-in lint guard, and `EmptyState`. Apps install it as a runtime dependency pinned to a git tag; the tag's `prepare` script builds it on install. It is MIT licensed and builds on no other kit; devkit is a development dependency only.
 
 ## Standards
 
@@ -17,6 +17,7 @@ web-app-kit owns shared web UI primitives and their lint guards. It does not own
 | History-backed dialog stack and its read-only API   | `src/dialogStack.ts`                  |
 | Back-gesture marker on close events                 | `src/backGesture.ts`                  |
 | Escape and accessibility fixes for in-dialog popups | `src/dialogPopupAccessibility.ts`     |
+| Empty-state surface and its public class names      | `src/EmptyState.tsx`                  |
 | Lint guard (`./eslint` export)                      | `src/eslint.ts`                       |
 | Tests and the jsdom bootstrap                       | `src/*.test.ts(x)`, `src/test-utils/` |
 | React 18 test pass                                  | `scripts/test-react18.mjs`            |
@@ -27,6 +28,7 @@ web-app-kit owns shared web UI primitives and their lint guards. It does not own
 - Back restores the entries it went past before asking the dialogs to close; a declined Back must leave the next Back working.
 - Unmounting spends the entry only while the current entry is still the dialog's own; after a route change, history is left alone so the navigation is not undone.
 - Scrim clicks never reach `onClose` unless `dismissOnBackdropClick` is set.
+- `emptyStateClasses` names are public API that apps style against; renaming or removing one, or moving one to a different part, is a breaking change. Default colours come only from Joy theme tokens.
 
 ## Conventions and gotchas
 

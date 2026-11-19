@@ -1,6 +1,6 @@
 # web-app-kit
 
-web-app-kit holds the React UI primitives the Dynamic Solutions web apps share once a piece has reached its third copy. It is built on Joy UI. Apps install it as a runtime dependency pinned to a git tag. Its first component is `BackAwareModal`, the dialog that browser and Android Back close instead of navigating the page away. It also ships an opt-in lint rule that keeps every dialog on it.
+web-app-kit holds the React UI primitives the Dynamic Solutions web apps share once a piece has reached its third copy. It is built on Joy UI. Apps install it as a runtime dependency pinned to a git tag. It provides `BackAwareModal`, the dialog that browser and Android Back close instead of navigating the page away, with an opt-in lint rule that keeps every dialog on it, and `EmptyState`, the one surface for a list or page with nothing to show.
 
 The kit holds no app names, strings or app behaviour. Where apps need different behaviour, the kit offers a general option, event or hook, and the policy stays in the app.
 
@@ -88,6 +88,77 @@ subscribeBackAwareDialogs(() => {
 
 A native Back handler (Capacitor's `backButton`, a desktop host's back message) calls `history.back()` when `hasOpenBackAwareDialog()` is true, and the dialog handles it as a Back.
 
+## EmptyState
+
+The surface for any list or page with nothing to show: an icon, a short title saying what is missing, one sentence on why or what to do, and an optional action, centred in a dashed card.
+
+```tsx
+import { Button } from '@mui/joy'
+import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded'
+import { EmptyState } from '@dynamic-solutions-canada/web-app-kit'
+
+export function NoItems({ onAdd }: { onAdd: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <EmptyState
+      icon={<InventoryRoundedIcon />}
+      title={t('items.empty.title')}
+      description={t('items.empty.description')}
+      action={<Button onClick={onAdd}>{t('items.add')}</Button>}
+    />
+  )
+}
+```
+
+| Prop          | Type        | Notes                                                                                 |
+| ------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `icon`        | `ReactNode` | Decorative; the bubble around it is hidden from assistive technology                  |
+| `title`       | `ReactNode` | What is missing, in a few words                                                       |
+| `description` | `ReactNode` | One sentence on why, or what to do                                                    |
+| `action`      | `ReactNode` | Optional, usually one button                                                          |
+| `compact`     | `boolean`   | Tighter spacing, for an empty state inside a card or a short list                     |
+| `sx`          | `SxProps`   | Extra styles for the root card, applied after the defaults; the array form also works |
+
+Colours come from the Joy theme (`neutral.outlinedBorder`, `background.level1`, `primary.softBg`, `primary.softColor`, `primary.outlinedBorder`, `text.tertiary`), so it follows the light and dark schemes with no app tokens.
+
+### Restyling every empty state
+
+Each part carries a stable class name. These names are public API: renaming or removing one is a breaking change. `emptyStateClasses` exports them, so code need not spell them out.
+
+| Part            | Class name                         | `emptyStateClasses` key |
+| --------------- | ---------------------------------- | ----------------------- |
+| The card        | `WebAppKit-EmptyState-root`        | `root`                  |
+| The icon bubble | `WebAppKit-EmptyState-icon`        | `icon`                  |
+| The title       | `WebAppKit-EmptyState-title`       | `title`                 |
+| The description | `WebAppKit-EmptyState-description` | `description`           |
+
+Restyle them once, where the app's theme lives, rather than passing `sx` at every use. Either route below wins over the kit's own styles:
+
+```ts
+import { extendTheme } from '@mui/joy'
+import { emptyStateClasses } from '@dynamic-solutions-canada/web-app-kit'
+
+// In the Joy theme: the override applies to the card, and nested selectors reach the parts.
+const theme = extendTheme({
+  components: {
+    JoyCard: {
+      styleOverrides: {
+        root: {
+          [`&.${emptyStateClasses.root}`]: {
+            borderColor: 'var(--app-empty-state-border)',
+            [`& .${emptyStateClasses.icon}`]: {
+              backgroundColor: 'var(--app-empty-state-icon)',
+            },
+          },
+        },
+      },
+    },
+  },
+})
+```
+
+In global CSS, use a selector with at least two classes, such as `.WebAppKit-EmptyState-root.WebAppKit-EmptyState-root` or `.app-shell .WebAppKit-EmptyState-root`. A rule with a single class has the same specificity as the kit's own styles and loses to them.
+
 ## Lint: dialogs use BackAwareModal
 
 A dialog built directly on Joy's `Modal` looks identical and silently loses Back handling. The `./eslint` export makes a direct import an error.
@@ -126,7 +197,8 @@ const restrictedImports = {
 - Replace the app's own copy and its history helper; do not keep both. An app's old history key, left in a tab that stays open across the deploy, is ignored, and a stale entry costs at most one Back that does nothing.
 - Move the app's "dialog is open" hookups (an app-busy registry, a native Back handler) onto the read-only stack exports above.
 - Before shipping, check Back on a real device: Android's Back gesture and a desktop browser's Back button, on a dialog that closes and on one that declines to close. Chrome can skip history entries created without a user gesture, which automated tests do not exercise.
-- Behaviour that may differ from an older copy: scrim clicks no longer close, Back arrives as `closeClick` rather than `backdropClick`, focus handling is on, and a declined close keeps the dialog's history entry.
+- `EmptyState` keeps the props of the copies it replaces, with `title` and `description` widened to any `ReactNode`. Move an app-specific look out of the component and into the app's theme through the class names above.
+- Behaviour that may differ from an older copy of `BackAwareModal`: scrim clicks no longer close, Back arrives as `closeClick` rather than `backdropClick`, focus handling is on, and a declined close keeps the dialog's history entry.
 
 ## Limits and gotchas
 
